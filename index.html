@@ -1,56 +1,110 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RA Surprise</title>
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Test AR - Vinyle Flottant</title>
+
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; background-color: #111; color: white; }
+        #loader, #instructions { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background-color: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 10px; text-align: center; font-size: 1.2em; }
+        #instructions { display: none; top: 80%; }
+        .arjs-loader-logo { display: none !important; }
+        a { color: #4dd0e1; }
+        #marker-link { margin-top: 15px; display: inline-block; }
+    </style>
 </head>
-<body>
-  <a-scene embedded arjs="sourceType: webcam;">
-    <!-- Animation 3D simple : un cube qui tourne -->
-    <a-box position="0 0.5 -3" rotation="0 45 0" color="#4CC3D9" animation="property: rotation; to: 0 360 0; loop: true; dur: 2000"></a-box>
-    <!-- Caméra pour activer la RA -->
-    <a-entity camera></a-entity>
-  </a-scene>
+
+<body style='margin : 0px; overflow: hidden;'>
+
+    <div id="loader">Chargement de l'expérience AR...</div>
+
+    <div id="instructions">
+        Pointez votre caméra vers l'image du marqueur "Hiro".
+        <br><small>(Assurez-vous d'avoir autorisé l'accès à la caméra)</small>
+        <br>
+        <a id="marker-link" href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" target="_blank" rel="noopener noreferrer">Voir le marqueur Hiro</a>
+    </div>
+
+    <a-scene
+        embedded
+        renderer='logarithmicDepthBuffer: true; colorManagement: true;'
+        vr-mode-ui='enabled: false'
+        arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
+        loading-screen="dotsColor: white; backgroundColor: #111"
+        gesture-detector>
+
+        <a-entity camera id="camera"></a-entity>
+
+        <a-marker preset='hiro' id="marker">
+
+            <a-entity
+                id="vinyl-model"
+                gltf-model="url(assets/vinyl.glb)"
+                scale="0.5 0.5 0.5"
+                position="0 0.1 0"   rotation="-90 0 0"  animation-mixer
+                shadow="receive: false; cast: true">
+            </a-entity>
+
+            <a-text
+                value="Mon Vinyle AR"
+                color="#FFF"
+                align="center"
+                width="2"
+                position="0 0.8 0" rotation="-90 0 0"
+                look-at="[camera]">
+            </a-text>
+
+            <a-light type="ambient" color="#BBB"></a-light>
+            <a-light type="directional" color="#FFF" intensity="0.6" position="-0.5 1 1"></a-light>
+
+        </a-marker>
+
+    </a-scene>
+
+    <script>
+        window.onload = () => {
+            const scene = document.querySelector('a-scene');
+            const loader = document.getElementById('loader');
+            const instructions = document.getElementById('instructions');
+
+            const showUI = () => {
+                loader.style.display = 'none';
+                instructions.style.display = 'block';
+            };
+
+            if (scene.hasLoaded) {
+                showUI();
+            } else {
+                scene.addEventListener('loaded', showUI);
+            }
+
+            const marker = document.getElementById('marker');
+            if (marker) {
+                marker.addEventListener('markerFound', () => {
+                    console.log('Marqueur Hiro trouvé !');
+                    instructions.style.display = 'none'; // Cache les instructions
+                });
+                 marker.addEventListener('markerLost', () => {
+                    console.log('Marqueur Hiro perdu.');
+                    instructions.style.display = 'block'; // Réaffiche les instructions
+                });
+            } else {
+                 console.error("Le marqueur 'Hiro' n'a pas été trouvé dans la scène.");
+            }
+        };
+
+        // Gestion basique des erreurs
+        window.addEventListener('arjs-permissions-error', (event) => {
+            console.error("Erreur de permissions AR.js:", event);
+            const loader = document.getElementById('loader');
+            loader.innerHTML = "Erreur : Accès caméra refusé. Vérifiez les paramètres.";
+            loader.style.color = "red";
+        });
+    </script>
+
 </body>
 </html>
